@@ -214,3 +214,26 @@ In no particular order.
 - Add a test that renders to two different TextureViews using different EGLContexts
   from a single renderer thread.
 
+
+
+# 播放udp
+
+## public static void arraycopy(Object src, int srcPos, Object dest, int destPos, int length)
+
+  - src:源数组;
+
+  - srcPos:源数组要复制的起始位置;
+
+  - dest:目的数组;
+
+  - destPos:目的数组放置的起始位置;
+
+  - length:复制的长度.
+
+## BufferFlag
+
+  BUFFER_FLAG_END_OF_STREAM：表示当前输入数据为结束流标记，用于告知编码器或解码器当前输入数据已经结束。当该标记设置时，queueInputBuffer方法的size参数可以为0。
+  BUFFER_FLAG_KEY_FRAME：表示当前输入数据为关键帧，对于视频编码器，该标记通常表示需要编码出一个完整的I帧。
+  BUFFER_FLAG_CODEC_CONFIG：表示当前输入数据为编解码器的配置信息，用于告知编解码器一些必要的参数。通常情况下只在第一帧时使用。
+  BUFFER_FLAG_SYNC_FRAME：表示当前输入数据为同步帧，通常用于音视频同步的场景中。
+

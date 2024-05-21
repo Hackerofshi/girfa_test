@@ -54,6 +54,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class TakeCaptureActivity extends Activity {
@@ -125,6 +126,7 @@ public class TakeCaptureActivity extends Activity {
             configureTransform(width, height);
             openCamera();
             initVideoCodec();
+            startEncode();
         }
 
 
@@ -382,6 +384,9 @@ public class TakeCaptureActivity extends Activity {
                         case ImageFormat.YUV_420_888:
                             Log.i(TAG, "format == YUV_420_888");
                             Log.i(TAG, "current Thread" + Thread.currentThread().getName());
+                            Log.i(TAG, "getPixelStride = " + planes[0].getPixelStride());
+                            Log.i(TAG, "getPixelStride = " + planes[1].getPixelStride());
+                            Log.i(TAG, "getPixelStride = " + planes[2].getPixelStride());
                             procHandler.removeCallbacksAndMessages(null);
                             lock.lock();
                             if (y == null) {
@@ -420,20 +425,18 @@ public class TakeCaptureActivity extends Activity {
             nv21 = new byte[stride * previewSize.getHeight() * 3 / 2];
             nv21_rotated = new byte[stride * previewSize.getHeight() * 3 / 2];
         }
-        //byte[] nv21 = CommonUtils.YUV_420_888toNV21(image);
-        //Log.i(TAG, "onPreview: "+nv21.length);
-        //CommonUtils.NV21ToNV12(nv21, nv12, mPreviewSize.getWidth(), mPreviewSize.getHeight());
-        //Log.i(TAG, "onPreview: " + nv12.length);
         ImageUtil.yuvToNv21(y, u, v, nv21, stride, previewSize.getHeight());
         ImageUtil.nv21_rotate_to_90(nv21, nv21_rotated, stride, previewSize.getHeight());
         final byte[] temp = ImageUtil.nv21toNV12(nv21_rotated, nv12);
 
-        procHandler.post(new Runnable() {
+        //放入队列中
+        putYUVData(temp);
+        /*procHandler.post(new Runnable() {
             @Override
             public void run() {
                 encode(temp);
             }
-        });
+        });*/
     }
 
     private Point previewViewSize;
@@ -485,7 +488,8 @@ public class TakeCaptureActivity extends Activity {
         }
 
         for (Size s : sizes) {
-            if (Math.abs((s.getHeight() / (float) s.getWidth()) - previewViewRatio) < Math.abs(bestSize.getHeight() / (float) bestSize.getWidth() - previewViewRatio)) {
+            if (Math.abs((s.getHeight() / (float) s.getWidth()) - previewViewRatio)
+                    < Math.abs(bestSize.getHeight() / (float) bestSize.getWidth() - previewViewRatio)) {
                 bestSize = s;
             }
         }
@@ -571,15 +575,15 @@ public class TakeCaptureActivity extends Activity {
     private void captureContinuousPictures() {
         try {
             //首先我们创建请求拍照的CaptureRequest
-//            final CaptureRequest.Builder mCaptureBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-//            //获取屏幕方向
-//            int rotation = getWindowManager().getDefaultDisplay().getRotation();
-//
-//            mCaptureBuilder.addTarget(mPreviewSurface);
-//            mCaptureBuilder.addTarget(mImageReader.getSurface());
-//
-//            //设置拍照方向
-//            mCaptureBuilder.set(CaptureRequest.JPEG_ORIENTATION, ORIENTATION.get(rotation));
+            //            final CaptureRequest.Builder mCaptureBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            //            //获取屏幕方向
+            //            int rotation = getWindowManager().getDefaultDisplay().getRotation();
+            //
+            //            mCaptureBuilder.addTarget(mPreviewSurface);
+            //            mCaptureBuilder.addTarget(mImageReader.getSurface());
+            //
+            //            //设置拍照方向
+            //            mCaptureBuilder.set(CaptureRequest.JPEG_ORIENTATION, ORIENTATION.get(rotation));
 
             // 锁定AE调节，否则录像或视频画面在特定光线条件下会不停闪烁
             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
@@ -636,7 +640,7 @@ public class TakeCaptureActivity extends Activity {
         //mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, COLOR_FormatYUV420Flexible);
         //比特率，也就是码率 ，值越高视频画面更清晰画质更高
-        mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, 4000_000);
+        mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, 1000_000);
         //帧率，一般设置为30帧就够了
         mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 25);
         //关键帧间隔
@@ -662,6 +666,39 @@ public class TakeCaptureActivity extends Activity {
     long generateIndex = 0;
     private byte[] configbyte;
     private static final int TIMEOUT_USEC = 12000;
+    private static final int yuvqueuesize = 10;
+
+    ArrayBlockingQueue<byte[]> YUVQueue = new ArrayBlockingQueue<byte[]>(yuvqueuesize);
+
+    public void putYUVData(byte[] buffer) {
+        if (YUVQueue.size() >= 10) {
+            YUVQueue.poll();
+        }
+        YUVQueue.add(buffer);
+        Log.i(TAG, "YUVQueue.size == : " + YUVQueue.size());
+    }
+
+    private volatile boolean isRunning;
+
+    /**
+     * 开始线程，开始编码
+     */
+    private void startEncode() {
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                isRunning = true;
+                while (isRunning) {
+                    if (YUVQueue.size() > 0) {
+                        byte[] poll = YUVQueue.poll();
+                        encode(poll);
+                    }
+                }
+            }
+        });
+        thread.start();
+    }
+
 
     void encode(byte[] input) {
         Log.i(TAG, "encode: " + input.length);
@@ -701,10 +738,11 @@ public class TakeCaptureActivity extends Activity {
                     outputStream.write(outData, 0, outData.length);
                     Log.i(TAG, "encode: " + outData.length);
                 }
-                send.sendH264Data(outData);
-                Thread.sleep(40);
+                //send.sendH264Data(outData);
+                //Thread.sleep(40);
                 mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                 outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
+                Log.i(TAG, "outputBufferIndex: =" + outputBufferIndex);
             }
 
         } catch (Throwable t) {
@@ -736,4 +774,10 @@ public class TakeCaptureActivity extends Activity {
     }
 
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mCameraDevice.close();
+        isRunning = false;
+    }
 }
