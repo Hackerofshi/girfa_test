@@ -757,7 +757,7 @@ public class TakeCaptureActivity extends Activity {
      * @return
      */
     private long computePresentationTime(long frameIndex) {
-        return 132 + frameIndex * 1000000 / 25;
+        return 132 + frameIndex * 1000_000 / 25;
     }
 
 
