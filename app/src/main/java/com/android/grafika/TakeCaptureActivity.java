@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.locks.ReentrantLock;
 
+
 public class TakeCaptureActivity extends Activity {
 
     private static final String TAG = "RHCamera2";
@@ -97,7 +98,7 @@ public class TakeCaptureActivity extends Activity {
     private MediaCodec mediaCodec;
     private BufferedOutputStream outputStream;
 
-    private UdpSend send = new UdpSend();
+    private final UdpSend send = new UdpSend();
 
     private void startBackgroundThread() {
         mBackgroundThread = new HandlerThread("CameraBackground");
@@ -167,7 +168,7 @@ public class TakeCaptureActivity extends Activity {
         }
     };
 
-    private CameraCaptureSession.CaptureCallback mPreviewCaptureCallback = new CameraCaptureSession.CaptureCallback() {
+    private final CameraCaptureSession.CaptureCallback mPreviewCaptureCallback = new CameraCaptureSession.CaptureCallback() {
         @Override
         public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request,
                                        @NonNull TotalCaptureResult result) {
@@ -270,7 +271,8 @@ public class TakeCaptureActivity extends Activity {
                 return;
             }
             startBackgroundThread();
-            //打开相机，第一个参数指示打开哪个摄像头，第二个参数stateCallback为相机的状态回调接口，第三个参数用来确定Callback在哪个线程执行，为null的话就在当前线程执行
+            //打开相机，第一个参数指示打开哪个摄像头，第二个参数stateCallback为相机的状态回调接口，
+            // 第三个参数用来确定Callback在哪个线程执行，为null的话就在当前线程执行
             manager.openCamera(mCameraId, stateCallback, mCameraBgHandler);
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -325,7 +327,8 @@ public class TakeCaptureActivity extends Activity {
         mPreviewSurface = new Surface(mSurfaceTexture);
         try {
             getPreviewRequestBuilder();
-            //创建相机捕获会话，第一个参数是捕获数据的输出Surface列表，第二个参数是CameraCaptureSession的状态回调接口，当它创建好后会回调onConfigured方法，第三个参数用来确定Callback在哪个线程执行，为null的话就在当前线程执行
+            //创建相机捕获会话，第一个参数是捕获数据的输出Surface列表，第二个参数是CameraCaptureSession的状态回调接口，
+            // 当它创建好后会回调onConfigured方法，第三个参数用来确定Callback在哪个线程执行，为null的话就在当前线程执行
             mCameraDevice.createCaptureSession(Arrays.asList(mPreviewSurface, mImageReader.getSurface()),
                     new CameraCaptureSession.StateCallback() {
                         @Override
@@ -359,7 +362,8 @@ public class TakeCaptureActivity extends Activity {
 
     private void setupImageReader() {
         //前三个参数分别是需要的尺寸和格式，最后一个参数代表每次最多获取几帧数据
-        mImageReader = ImageReader.newInstance(mPreviewSize.getWidth(), mPreviewSize.getHeight(), video ? ImageFormat.YUV_420_888 : ImageFormat.JPEG, 1);
+        mImageReader = ImageReader.newInstance(mPreviewSize.getWidth(), mPreviewSize.getHeight(),
+                video ? ImageFormat.YUV_420_888 : ImageFormat.JPEG, 1);
         //监听ImageReader的事件，当有图像流数据可用时会回调onImageAvailable方法，它的参数就是预览帧数据，可以对这帧数据进行处理
         mImageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
             private byte[] y;
@@ -427,10 +431,13 @@ public class TakeCaptureActivity extends Activity {
         }
         ImageUtil.yuvToNv21(y, u, v, nv21, stride, previewSize.getHeight());
         ImageUtil.nv21_rotate_to_90(nv21, nv21_rotated, stride, previewSize.getHeight());
+
         final byte[] temp = ImageUtil.nv21toNV12(nv21_rotated, nv12);
 
         //放入队列中
         putYUVData(temp);
+
+        //直接编码
         /*procHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -536,8 +543,13 @@ public class TakeCaptureActivity extends Activity {
         if (meteringRectangles != null && meteringRectangles.length > 0) {
             Log.d(TAG, "PreviewRequestBuilder: AF_REGIONS=" + meteringRectangles[0].getRect().toString());
         }
-        mPreviewRequestBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
-        mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
+        // 锁定AE调节，否则录像或视频画面在特定光线条件下会不停闪烁
+        // mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
+        // mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
+        mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+        // mPreviewRequestBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
+
+        // mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
     }
 
     // 拍照
@@ -635,7 +647,8 @@ public class TakeCaptureActivity extends Activity {
         Log.i(TAG, "initVideoCodec: getWidth" + mPreviewSize.getWidth());
         Log.i(TAG, "initVideoCodec: getHeight" + mPreviewSize.getHeight());
 
-        MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", mPreviewSize.getHeight(), mPreviewSize.getWidth());
+        //设置录制视频的宽高
+        MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", mPreviewSize.getWidth(), mPreviewSize.getHeight());
         //颜色空间设置为yuv420sp
         //mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, COLOR_FormatYUV420Flexible);
@@ -658,7 +671,7 @@ public class TakeCaptureActivity extends Activity {
         //设置为编码模式和编码格式
         mediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         mediaCodec.start();
-        createfile(getExternalCacheDir().getAbsolutePath() + File.separator + "test.h264");
+        createFile(getExternalCacheDir().getAbsolutePath() + File.separator + "test.h264");
     }
 
 
@@ -761,7 +774,7 @@ public class TakeCaptureActivity extends Activity {
     }
 
 
-    private void createfile(String path) {
+    private void createFile(String path) {
         File file = new File(path);
         if (file.exists()) {
             file.delete();
@@ -778,6 +791,7 @@ public class TakeCaptureActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         mCameraDevice.close();
+        stopBackgroundThread();
         isRunning = false;
     }
 }
