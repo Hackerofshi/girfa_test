@@ -18,18 +18,18 @@ public class CameraToH264 {
     private int height;
     private MediaCodec mediaCodec;
     private MediaMuxer mediaMuxer;
-    private int mVideoTrack=-1;
+    private int mVideoTrack = -1;
     private long nanoTime;
 
 
-    public void init(int width, int heigth) {
+    public void init(int width, int height) {
         nanoTime = System.nanoTime();
         this.width = width;
-        this.height = heigth;
-        MediaFormat videoFormat = MediaFormat.createVideoFormat("video/avc", width, heigth);
+        this.height = height;
+        MediaFormat videoFormat = MediaFormat.createVideoFormat("video/avc", width, height);
         videoFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
         videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
-        videoFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * heigth * 5);
+        videoFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 5);
         videoFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
 
         try {
@@ -76,7 +76,8 @@ public class CameraToH264 {
                             ByteBuffer inputBuffer = inputBuffers[inputBufferIndex];
                             inputBuffer.clear();
                             inputBuffer.put(input);
-                            mediaCodec.queueInputBuffer(inputBufferIndex, 0, input.length, (System.nanoTime() - nanoTime) / 1000, 0);
+                            mediaCodec.queueInputBuffer(inputBufferIndex, 0, input.length,
+                                    (System.nanoTime() - nanoTime) / 1000, 0);
                         }
 
                         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();

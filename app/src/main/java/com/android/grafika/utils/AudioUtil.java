@@ -1,5 +1,6 @@
 package com.android.grafika.utils;
 
+import android.app.Activity;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
@@ -7,6 +8,7 @@ import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.os.Environment;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -51,7 +53,10 @@ public class AudioUtil {
         }
     };
 
+    private final PcmToAAC aac = new PcmToAAC();
+
     private AudioUtil() {
+
     }
 
     private static final class AudioUtilHolder {
@@ -63,58 +68,65 @@ public class AudioUtil {
     }
 
     /**
-     *
      * @param fileName 录音保存的文件名
      */
-    public void startAudioRecord(String fileName) {
+    public void startAudioRecord(String fileName, final Activity activity) {
+        aac.init(activity);
         isRecording = true;
         mStartTimeStamp = System.currentTimeMillis();
-        mAudioFile = new File(mPath + fileName + mStartTimeStamp + ".pcm");
+        mAudioFile = new File(activity.getExternalCacheDir() + File.separator + fileName + mStartTimeStamp + ".pcm");
         if (!mAudioFile.getParentFile().exists()) {
             boolean mkdirs = mAudioFile.getParentFile().mkdirs();
         }
+        aac.start();
         Observable.create(new ObservableOnSubscribe<AudioData>() {
-            @Override
-            public void subscribe(ObservableEmitter<AudioData> emitter) {
-                try {
-                    boolean newFile = mAudioFile.createNewFile();
-                    //创建文件输出流
-                    mAudioFileOutput = new FileOutputStream(mAudioFile);
+                    @Override
+                    public void subscribe(ObservableEmitter<AudioData> emitter) {
+                        try {
+                            boolean newFile = mAudioFile.createNewFile();
+                            if (!newFile) {
+                                Toast.makeText(activity, "文件创建是吧", Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            //创建文件输出流
+                            mAudioFileOutput = new FileOutputStream(mAudioFile);
 
-                    //计算audioRecord能接受的最小的buffer大小
-                    recordBufSize = AudioRecord.getMinBufferSize(sampleRate,
-                            channelConfig,
-                            autioFormat);
-                    Log.d(TAG, "最小的buffer大小: " + recordBufSize);
-                    audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
-                            sampleRate,
-                            channelConfig,
-                            autioFormat, recordBufSize);
+                            //计算audioRecord能接受的最小的buffer大小
+                            recordBufSize = AudioRecord.getMinBufferSize(sampleRate,
+                                    channelConfig,
+                                    autioFormat);
+                            Log.d(TAG, "最小的buffer大小: " + recordBufSize);
+                            audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
+                                    sampleRate,
+                                    channelConfig,
+                                    autioFormat, recordBufSize);
 
-                    //初始化一个buffer 用于从AudioRecord中读取声音数据到文件流
-                    byte data[] = new byte[recordBufSize];
-                    //开始录音
-                    audioRecord.startRecording();
-                    AudioData audioData = new AudioData();
-                    while (isRecording) {
-                        //只要还在录音就一直读取
-                        int read = audioRecord.read(data, 0, recordBufSize);
-                        if (read > 0) {
-                            audioData.setData(data);
-                            audioData.setLength(read);
-                            emitter.onNext(audioData);
+                            //初始化一个buffer 用于从AudioRecord中读取声音数据到文件流
+                            byte[] data = new byte[recordBufSize];
+                            //开始录音
+                            audioRecord.startRecording();
+                            AudioData audioData = new AudioData();
+                            while (isRecording) {
+                                //只要还在录音就一直读取
+                                int read = audioRecord.read(data, 0, recordBufSize);
+                                if (read > 0) {
+                                    aac.putData(data, data.length);
+                                    audioData.setData(data);
+                                    audioData.setLength(read);
+                                    emitter.onNext(audioData);
+                                }
+                            }
+                            emitter.onComplete();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            stopAudioRecord();
                         }
                     }
-                    emitter.onComplete();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    stopAudioRecord();
-                }
-            }
-        }).subscribeOn(Schedulers.io())
+                }).subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Observer<AudioData>() {
                     private Disposable mDisposable;
+
                     @Override
                     public void onSubscribe(Disposable d) {
                         mDisposable = d;
@@ -123,7 +135,7 @@ public class AudioUtil {
                     @Override
                     public void onNext(AudioData audioData) {
                         try {
-                            if (mAudioFileOutput != null){
+                            if (mAudioFileOutput != null) {
                                 mAudioFileOutput.write(audioData.getData(), 0, audioData.getLength());
                             }
                         } catch (IOException e) {
@@ -134,14 +146,14 @@ public class AudioUtil {
                     @Override
                     public void onError(Throwable e) {
                         Log.e(TAG, "onError: " + e.getMessage());
-                        if (mDisposable != null && !mDisposable.isDisposed()){
+                        if (mDisposable != null && !mDisposable.isDisposed()) {
                             mDisposable.dispose();
                         }
                     }
 
                     @Override
                     public void onComplete() {
-                        if (mDisposable != null && !mDisposable.isDisposed()){
+                        if (mDisposable != null && !mDisposable.isDisposed()) {
                             mDisposable.dispose();
                         }
                     }
@@ -190,8 +202,8 @@ public class AudioUtil {
                         case AudioTrack.ERROR_INVALID_OPERATION:
                         case AudioTrack.ERROR_BAD_VALUE:
                         case AudioManager.ERROR_DEAD_OBJECT:
-                            if (mAudioListener != null){
-                                mAudioListener.onError("播放失败："+ret);
+                            if (mAudioListener != null) {
+                                mAudioListener.onError("播放失败：" + ret);
                             }
                             return;
                         default:
@@ -203,13 +215,13 @@ public class AudioUtil {
             e.printStackTrace();
             //读取失败
             Log.d(TAG, "doPlay: 失败");
-            if (mAudioListener != null){
+            if (mAudioListener != null) {
                 mAudioListener.onError(e.getMessage());
             }
         } finally {
             stopPlay();
             Log.d(TAG, "结束播放");
-            if (mAudioListener != null){
+            if (mAudioListener != null) {
                 mAudioListener.onPlayFinish();
             }
         }
@@ -233,12 +245,12 @@ public class AudioUtil {
             mAudioFileOutput.close();
         } catch (IOException e) {
             e.printStackTrace();
-            if (mAudioListener != null){
+            if (mAudioListener != null) {
                 mAudioListener.onError(e.getMessage());
             }
             return false;
         }
-        if (mAudioListener != null){
+        if (mAudioListener != null) {
             mAudioListener.onRecordFinish();
         }
         return true;
@@ -270,7 +282,7 @@ public class AudioUtil {
         }
     }
 
-    private class AudioData{
+    private class AudioData {
         private int length;
         private byte[] data;
 
@@ -290,6 +302,7 @@ public class AudioUtil {
             this.data = data;
         }
     }
+
     private AudioListener mAudioListener;
 
     public void setAudioListener(AudioListener listener) {
@@ -298,7 +311,9 @@ public class AudioUtil {
 
     public interface AudioListener {
         void onRecordFinish();
+
         void onPlayFinish();
+
         void onError(String errMsg);
     }
 }

@@ -389,6 +389,7 @@ public class TakeCaptureActivity extends Activity {
                             Log.i(TAG, "format == YUV_420_888");
                             Log.i(TAG, "current Thread" + Thread.currentThread().getName());
                             Log.i(TAG, "getPixelStride = " + planes[0].getPixelStride());
+
                             Log.i(TAG, "getPixelStride = " + planes[1].getPixelStride());
                             Log.i(TAG, "getPixelStride = " + planes[2].getPixelStride());
                             procHandler.removeCallbacksAndMessages(null);
@@ -425,6 +426,9 @@ public class TakeCaptureActivity extends Activity {
     private byte[] nv12;
 
     public void onPreview(Image image, byte[] y, byte[] u, byte[] v, Size previewSize, int stride) {
+        Log.i(TAG, "width = " + mPreviewSize.getWidth());
+        Log.i(TAG, "stride = " + stride);
+
         if (nv21 == null) {
             nv21 = new byte[stride * previewSize.getHeight() * 3 / 2];
             nv21_rotated = new byte[stride * previewSize.getHeight() * 3 / 2];

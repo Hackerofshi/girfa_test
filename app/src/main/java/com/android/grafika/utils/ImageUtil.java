@@ -14,8 +14,6 @@ public class ImageUtil {
             uIndex += 2;
         }
     }
-//滴滴 小问题
-//
 
     public static byte[] nv21_rotate_to_90(byte[] nv21_data, byte[] nv21_rotated, int width, int height)
     {

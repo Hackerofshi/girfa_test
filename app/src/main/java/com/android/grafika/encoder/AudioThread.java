@@ -104,9 +104,6 @@ public class AudioThread extends Thread {
                         Log.e("mmm", "添加音轨 INFO_OUTPUT_FORMAT_CHANGED " + format.toString());
                         muxerThread.addTrackIndex(MuxerThread.TRACK_AUDIO, format);
                     }
-
-
-
                 } else if (outputBufferIndex < 0) {
                     Log.e("mmm", "encoderStatus < 0");
                 } else {

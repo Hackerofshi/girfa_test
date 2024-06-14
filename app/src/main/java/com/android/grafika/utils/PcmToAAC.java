@@ -1,11 +1,13 @@
 package com.android.grafika.utils;
 
+import android.app.Activity;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.util.Log;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -18,7 +20,7 @@ public class PcmToAAC {
     private Queue queue;
 
 
-    public void init() {
+    public void init(Activity activity) {
 
         queue = new Queue();
         queue.init(1024 * 100);
@@ -34,7 +36,7 @@ public class PcmToAAC {
             encoder.configure(audioFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             encoder.start();
 
-            mediaMuxer = new MediaMuxer("sdcard/pcm.aac", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            mediaMuxer = new MediaMuxer(activity.getExternalCacheDir() + File.separator + "pcm.aac", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
 
 
             Log.d("mmm", "accinit");
@@ -89,7 +91,6 @@ public class PcmToAAC {
                         Log.d("mmm", "try-later");
                     }
                     while (outputBufferindex > 0) {
-
                         if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
                             bufferInfo.size = 0;
                         }
