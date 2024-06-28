@@ -685,7 +685,7 @@ public class TakeCaptureActivity extends Activity {
     private static final int TIMEOUT_USEC = 12000;
     private static final int yuvqueuesize = 10;
 
-    ArrayBlockingQueue<byte[]> YUVQueue = new ArrayBlockingQueue<byte[]>(yuvqueuesize);
+    ArrayBlockingQueue<byte[]> YUVQueue = new ArrayBlockingQueue<>(yuvqueuesize);
 
     public void putYUVData(byte[] buffer) {
         if (YUVQueue.size() >= 10) {
@@ -708,7 +708,9 @@ public class TakeCaptureActivity extends Activity {
                 while (isRunning) {
                     if (YUVQueue.size() > 0) {
                         byte[] poll = YUVQueue.poll();
-                        encode(poll);
+                        if (poll != null) {
+                            encode(poll);
+                        }
                     }
                 }
             }

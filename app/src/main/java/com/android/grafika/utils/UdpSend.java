@@ -1,5 +1,7 @@
 package com.android.grafika.utils;
 
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.util.Log;
 
 import java.io.IOException;
@@ -15,25 +17,46 @@ public class UdpSend {
     private static final int MAX_PACKET_SIZE = 1400; // UDP packet max size (consider network MTU)
     private static final String TAG = "UdpH264Sender";
 
+    private HandlerThread sendThread;
+    private Handler sendHandler;
+
     public UdpSend() {
         try {
             socket = new DatagramSocket();
             address = InetAddress.getByName("192.168.5.78");
+
+
+            if (sendThread == null) sendThread = new HandlerThread("udp数据发送线程");
+            if (sendHandler == null) {
+                sendThread.start();
+                sendHandler = new Handler(sendThread.getLooper());
+            }
+
         } catch (SocketException | UnknownHostException e) {
             e.printStackTrace();
         }
     }
+
+    public void sendPack(final byte[] data) {
+        sendHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                sendH264Data(data);
+            }
+        });
+    }
+
     public void sendH264Data(byte[] data) {
         try {
             int offset = 0;
             while (offset < data.length) {
                 int packetSize = Math.min(MAX_PACKET_SIZE, data.length - offset);
-                DatagramPacket packet = new DatagramPacket(data, offset, packetSize, address, 8080);
+                DatagramPacket packet = new DatagramPacket(data, offset, packetSize, address, 5000);
                 socket.send(packet);
                 offset += packetSize;
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error sending H.264 data", e);
+            Log.e(TAG, "Error sending H.264 data" + e.getMessage());
         }
     }
 
@@ -59,7 +82,6 @@ public class UdpSend {
             }
         }).start();
     }
-
 
 
     // -------视频--------
@@ -179,7 +201,7 @@ public class UdpSend {
                         bytes = l - 1 + 14; //bytes=l-1+14;
                         //client.send(new DatagramPacket(sendbuf, bytes, addr, port/*9200*/));
                         //send(sendbuf,bytes);
-                       // exceuteH264ToRtpLinsener(sendbuf, bytes);
+                        // exceuteH264ToRtpLinsener(sendbuf, bytes);
                     }//pl
                     t++;
                 } else if (t < k && 0 != t) {//既不是第一片，又不是最后一片的包
@@ -195,15 +217,13 @@ public class UdpSend {
                     System.arraycopy(r, t * packageSize + 1, sendbuf, 14, packageSize);//不包含NALU头
                     //client.send(new DatagramPacket(sendbuf, packageSize + 14, addr, port/*9200*/));
                     //send(sendbuf,1414);
-                   // exceuteH264ToRtpLinsener(sendbuf, packageSize + 14);
+                    // exceuteH264ToRtpLinsener(sendbuf, packageSize + 14);
 
                     t++;
                 }
             }
         }
     }
-
-
 
 
     private byte[] h264Buffer;
@@ -215,7 +235,6 @@ public class UdpSend {
     public UdpSend(int width, int height) {
         h264Buffer = new byte[getYuvBuffer(width, height)];
     }
-
 
 
     /**

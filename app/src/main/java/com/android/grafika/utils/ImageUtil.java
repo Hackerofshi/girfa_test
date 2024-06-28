@@ -67,4 +67,34 @@ public class ImageUtil {
     }
 
 
+    public static YUVData splitNV21ToYUV(byte[] nv21, int width, int height) {
+        int frameSize = width * height;
+        byte[] y = new byte[frameSize];
+        byte[] u = new byte[frameSize / 4];
+        byte[] v = new byte[frameSize / 4];
+
+        // Copy Y plane
+        System.arraycopy(nv21, 0, y, 0, frameSize);
+
+        // Copy UV plane
+        int uvIndex = frameSize;
+        for (int i = 0; i < frameSize / 4; i++) {
+            v[i] = nv21[uvIndex++];
+            u[i] = nv21[uvIndex++];
+        }
+
+        return new YUVData(y, u, v);
+    }
+
+    public static class YUVData {
+        public byte[] y;
+        public byte[] u;
+        public byte[] v;
+
+        public YUVData(byte[] y, byte[] u, byte[] v) {
+            this.y = y;
+            this.u = u;
+            this.v = v;
+        }
+    }
 }
