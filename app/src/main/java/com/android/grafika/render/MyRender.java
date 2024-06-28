@@ -6,7 +6,7 @@ import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.util.Log;
 
-import com.tech.jinruicontroltool.R;
+import com.android.grafika.R;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

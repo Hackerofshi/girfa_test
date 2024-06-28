@@ -1,5 +1,6 @@
 package com.android.grafika.utils;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -80,6 +81,7 @@ public class AudioUtil {
         }
         aac.start();
         Observable.create(new ObservableOnSubscribe<AudioData>() {
+                    @SuppressLint("MissingPermission")
                     @Override
                     public void subscribe(ObservableEmitter<AudioData> emitter) {
                         try {
