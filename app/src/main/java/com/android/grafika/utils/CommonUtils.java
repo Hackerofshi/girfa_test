@@ -1,9 +1,12 @@
 package com.android.grafika.utils;
 
+import android.annotation.SuppressLint;
 import android.media.Image;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class CommonUtils {
     /**
@@ -158,6 +161,7 @@ public class CommonUtils {
         v.get(yuv, y.capacity() + u.capacity(), v.capacity());
         return yuv;
     }
+
     /**
      * 注释：int到字节数组的转换！
      *
@@ -190,7 +194,7 @@ public class CommonUtils {
     }
 
     public static byte[] intToByteArray(int a) {
-        return new byte[] {
+        return new byte[]{
                 (byte) ((a >> 24) & 0xFF),
                 (byte) ((a >> 16) & 0xFF),
                 (byte) ((a >> 8) & 0xFF),
@@ -228,5 +232,11 @@ public class CommonUtils {
     }
 
 
-
+    public static String formatTime(long currentTime) {
+        //日期格式类：定义你需要的日期格式
+        @SuppressLint("SimpleDateFormat") SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd-HH:mm:ss");
+        //当前时间毫秒数转换为日期
+        Date date = new Date(currentTime);
+        return simpleDateFormat.format(date);
+    }
 }

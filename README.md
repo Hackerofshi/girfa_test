@@ -237,3 +237,39 @@ In no particular order.
   BUFFER_FLAG_CODEC_CONFIG：表示当前输入数据为编解码器的配置信息，用于告知编解码器一些必要的参数。通常情况下只在第一帧时使用。
   BUFFER_FLAG_SYNC_FRAME：表示当前输入数据为同步帧，通常用于音视频同步的场景中。
 
+
+## RTP 协议
+https://datatracker.ietf.org/doc/html/rfc3984
+
+## ByteBuffer
+
+ByteBuffer包含几个基本的属性：
+
+position：当前的下标位置，表示进行下一个读写操作时的起始位置；
+limit：结束标记下标，表示进行下一个读写操作时的（最大）结束位置；
+capacity：该ByteBuffer容量；
+mark: 自定义的标记位置；
+
+在将position复位之后，我们便可以从ByteBuffer中读取有效数据了。类似put()方法，
+ByteBuffer同样提供了一系列get方法，
+从position开始读取数据。 get()方法读取1个字节，
+
+getChar()、getShort()、getInt()、getFloat()、getLong()、getDouble()则读取相应字节数的数据，并转换成对应的数据类型。
+如getInt()即为读取4个字节，返回一个Int。在调用这些方法读取数据之后，ByteBuffer还会将position向后移动读取的长度，以便继续调用get类方法读取之后的数据。
+
+
+get(byte[] dst, int offset, int length)：表示尝试从 position 开始读取 length 长度的数据拷贝到 dst 目标数组 offset 到 offset + length 位置，相当于执行了
+  for (int i = off; i < off + len; i++)
+      dst[i] = buffer.get();
+
+get(byte[] dst)：尝试读取 dst 目标数组长度的数据，拷贝至目标数组，相当于执行了
+    buffer.get(dst, 0, dst.length);
+
+此处应注意读取数据后，已读取的数据也不会被清零。下图即为从例子中连续读取1个字节的byte和4个字节的int数据：
+
+
+
+原文链接：https://blog.csdn.net/mrliuzhao/article/details/89453082
+
+
+ByteBuffer之slice   https://juejin.cn/post/7267780768981811258

@@ -153,12 +153,12 @@ public class H264GLPlayer {
                     // 从 ByteBuffer 中获取解码好的数据
                     int outIndex = mediaCodec.dequeueOutputBuffer(info, 10 * 1000);
                     while (outIndex >= 0) {
-                    /*ByteBuffer outputBuffer;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        outputBuffer = mediaCodec.getOutputBuffer(outIndex);
-                    } else {
-                        outputBuffer = mediaCodec.getOutputBuffers()[outIndex];
-                    }*/
+                        /*ByteBuffer outputBuffer;
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            outputBuffer = mediaCodec.getOutputBuffer(outIndex);
+                        } else {
+                            outputBuffer = mediaCodec.getOutputBuffers()[outIndex];
+                        }*/
                         //mediaCodec 没有绑定surface时候才可以获取到Image
                         Image outputImage = mediaCodec.getOutputImage(outIndex);
                         if (outputImage != null) {

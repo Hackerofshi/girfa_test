@@ -1,7 +1,5 @@
 package com.android.grafika;
 
-import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
-import static android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME;
 import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
 
 import android.Manifest;
@@ -11,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -27,6 +26,7 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
+import android.media.MediaMuxer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -39,9 +39,12 @@ import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.view.WindowManager;
 
+import com.android.grafika.utils.CommonUtils;
 import com.android.grafika.utils.ImageUtil;
 import com.android.grafika.utils.UdpSend;
+import com.android.grafika.utils.YUVUtils;
 import com.android.grafika.widget.AutoFitTextureView;
 
 import java.io.BufferedOutputStream;
@@ -60,7 +63,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class TakeCaptureActivity extends Activity {
 
-    private static final String TAG = "RHCamera2";
+    private static final String TAG = "TakeCaptureActivity";
 
     private static final String TAG_PREVIEW = "预览";
 
@@ -78,7 +81,7 @@ public class TakeCaptureActivity extends Activity {
 
     private String mCameraId;
 
-    private Size mPreviewSize;
+    private Size mPreviewSize = new Size(1280, 720);
 
     private ImageReader mImageReader;
 
@@ -99,6 +102,7 @@ public class TakeCaptureActivity extends Activity {
     private BufferedOutputStream outputStream;
 
     private final UdpSend send = new UdpSend();
+    private MediaMuxer mMuxer;
 
     private void startBackgroundThread() {
         mBackgroundThread = new HandlerThread("CameraBackground");
@@ -193,12 +197,15 @@ public class TakeCaptureActivity extends Activity {
         findViewById(R.id.takePicture).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                captureContinuousPictures();
+                //captureContinuousPictures();
+                splitVideo();
             }
         });
 
         initHandler();
         send.receiver();
+        requestPermission();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
     }
 
@@ -215,6 +222,7 @@ public class TakeCaptureActivity extends Activity {
 
     @Override
     protected void onPause() {
+        stopMuxer();
         closeCamera();
         super.onPause();
     }
@@ -243,7 +251,8 @@ public class TakeCaptureActivity extends Activity {
                     continue;
                 // 获取StreamConfigurationMap，它是管理摄像头支持的所有输出格式和尺寸
                 StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-                mPreviewSize = getBestSupportedSize(new ArrayList<Size>(Arrays.asList(map.getOutputSizes(SurfaceTexture.class))));
+                mPreviewSize = new Size(1280, 720);
+                //getBestSupportedSize(new ArrayList<Size>(Arrays.asList(map.getOutputSizes(SurfaceTexture.class))));
 
                 //                int orientation = getResources().getConfiguration().orientation;
                 //                if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
@@ -251,14 +260,19 @@ public class TakeCaptureActivity extends Activity {
                 //                } else {
                 //                    textureView.setAspectRatio(mPreviewSize.getHeight(), mPreviewSize.getWidth());
                 //                }
-
-
                 mCameraId = cameraId;
                 break;
             }
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
+    }
+
+    public void requestPermission() {
+        ActivityCompat.requestPermissions(this,
+                new String[]{Manifest.permission.CAMERA,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
     }
 
 
@@ -363,7 +377,7 @@ public class TakeCaptureActivity extends Activity {
     private void setupImageReader() {
         //前三个参数分别是需要的尺寸和格式，最后一个参数代表每次最多获取几帧数据
         mImageReader = ImageReader.newInstance(mPreviewSize.getWidth(), mPreviewSize.getHeight(),
-                video ? ImageFormat.YUV_420_888 : ImageFormat.JPEG, 1);
+                video ? ImageFormat.YUV_420_888 : ImageFormat.JPEG, 3);
         //监听ImageReader的事件，当有图像流数据可用时会回调onImageAvailable方法，它的参数就是预览帧数据，可以对这帧数据进行处理
         mImageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
             private byte[] y;
@@ -378,7 +392,7 @@ public class TakeCaptureActivity extends Activity {
                     return;
                 }
                 try {
-                    Log.i(TAG, "Image Available!");
+                    //Log.i(TAG, "Image Available!");
                     Image.Plane[] planes = image.getPlanes();
                     int format = image.getFormat();
                     switch (format) {
@@ -386,12 +400,12 @@ public class TakeCaptureActivity extends Activity {
                             Log.i(TAG, "format == JPEG");
                             break;
                         case ImageFormat.YUV_420_888:
-                            Log.i(TAG, "format == YUV_420_888");
+                            /*Log.i(TAG, "format == YUV_420_888");
                             Log.i(TAG, "current Thread" + Thread.currentThread().getName());
                             Log.i(TAG, "getPixelStride = " + planes[0].getPixelStride());
 
                             Log.i(TAG, "getPixelStride = " + planes[1].getPixelStride());
-                            Log.i(TAG, "getPixelStride = " + planes[2].getPixelStride());
+                            Log.i(TAG, "getPixelStride = " + planes[2].getPixelStride());*/
                             procHandler.removeCallbacksAndMessages(null);
                             lock.lock();
                             if (y == null) {
@@ -408,10 +422,9 @@ public class TakeCaptureActivity extends Activity {
                             lock.unlock();
                             break;
                     }
-
-                    Log.i(TAG, "Image Available!" + planes.length);
+                    image.close();
+                    //Log.i(TAG, "Image Available!" + planes.length);
                 } finally {
-                    if (image != null) image.close();
                 }
 
 
@@ -424,22 +437,51 @@ public class TakeCaptureActivity extends Activity {
     private byte[] nv21;
     private byte[] nv21_rotated;
     private byte[] nv12;
+    private byte[] yuvData;
+
+    private final int mOutputFormat = COLOR_FORMAT_NV21;
 
     public void onPreview(Image image, byte[] y, byte[] u, byte[] v, Size previewSize, int stride) {
-        Log.i(TAG, "width = " + mPreviewSize.getWidth());
-        Log.i(TAG, "stride = " + stride);
+        //        Log.i(TAG, "width = " + mPreviewSize.getWidth());
+        //        Log.i(TAG, "height = " + mPreviewSize.getHeight());
+        //        Log.i(TAG, "y = " + y.length);
+        //        Log.i(TAG, "u = " + u.length);
+        //        Log.i(TAG, "v = " + v.length);
 
         if (nv21 == null) {
             nv21 = new byte[stride * previewSize.getHeight() * 3 / 2];
-            nv21_rotated = new byte[stride * previewSize.getHeight() * 3 / 2];
+            //nv21_rotated = new byte[stride * previewSize.getHeight() * 3 / 2];
         }
+
+        long startTime1 = System.currentTimeMillis();
         ImageUtil.yuvToNv21(y, u, v, nv21, stride, previewSize.getHeight());
-        ImageUtil.nv21_rotate_to_90(nv21, nv21_rotated, stride, previewSize.getHeight());
+        long endTime1 = System.currentTimeMillis();
+        //Log.d(TAG, "耗时===>" + (endTime1 - startTime1));
 
-        final byte[] temp = ImageUtil.nv21toNV12(nv21_rotated, nv12);
+        long startTime = System.currentTimeMillis();
+        if (yuvData == null) {
+            yuvData = new byte[nv21.length];
+        }
+        YUVUtils.NV21RotateAndConvertToNv12(nv21, yuvData, previewSize.getWidth(), previewSize.getHeight(), 90);
+        /*ImageUtil.nv21_rotate_to_90(nv21, nv21_rotated, stride, previewSize.getHeight());
+        final byte[] yuvData = ImageUtil.nv21toNV12(nv21_rotated, nv12);*/
+        long endTime = System.currentTimeMillis();
+        //Log.d(TAG, "耗时" + (endTime - startTime));
 
+        //byte[] yuvData = YUVUtils.yuv420888ToNv12(image);
+
+
+        /*int width = image.getWidth();
+        int height = image.getHeight();
+
+        int yuvLength = width * height * 3 / 2;
+
+        if (mYuvBuffer == null) {
+            mYuvBuffer = new byte[yuvLength];
+        }
+        */
         //放入队列中
-        putYUVData(temp);
+        putYUVData(yuvData);
 
         //直接编码
         /*procHandler.post(new Runnable() {
@@ -449,6 +491,85 @@ public class TakeCaptureActivity extends Activity {
             }
         });*/
     }
+
+
+    public final static int COLOR_FORMAT_I420 = 1;
+    public final static int COLOR_FORMAT_NV21 = 2;
+    public final static int COLOR_FORMAT_NV12 = 3;
+
+    private byte[] mYuvBuffer;
+
+    private void getDataFromImage(Image image, int colorFormat, int width, int height) {
+        Rect crop = image.getCropRect();
+        //int format = image.getFormat();
+        Log.d(TAG, "crop width: " + crop.width() + ", height: " + crop.height());
+        Image.Plane[] planes = image.getPlanes();
+
+        byte[] rowData = new byte[planes[0].getRowStride()];
+
+        int channelOffset = -1;
+        int outputStride = -1;
+        for (int i = 0; i < planes.length; i++) {
+            switch (i) {
+                case 0:
+                    channelOffset = 0;
+                    outputStride = 1;
+                    break;
+                case 1:
+                    if (colorFormat == COLOR_FORMAT_I420) {
+                        channelOffset = width * height;
+                        outputStride = 1;
+                    } else if (colorFormat == COLOR_FORMAT_NV21) {
+                        channelOffset = width * height + 1;
+                        outputStride = 2;
+                    } else if (colorFormat == COLOR_FORMAT_NV12) {
+                        channelOffset = width * height;
+                        outputStride = 2;
+                    }
+                    break;
+                case 2:
+                    if (colorFormat == COLOR_FORMAT_I420) {
+                        channelOffset = (int) (width * height * 1.25);
+                        outputStride = 1;
+                    } else if (colorFormat == COLOR_FORMAT_NV21) {
+                        channelOffset = width * height;
+                        outputStride = 2;
+                    } else if (colorFormat == COLOR_FORMAT_NV12) {
+                        channelOffset = width * height + 1;
+                        outputStride = 2;
+                    }
+                    break;
+                default:
+            }
+            ByteBuffer buffer = planes[i].getBuffer();
+            int rowStride = planes[i].getRowStride();
+            int pixelStride = planes[i].getPixelStride();
+
+            int shift = (i == 0) ? 0 : 1;
+            int w = width >> shift;
+            int h = height >> shift;
+            buffer.position(rowStride * (crop.top >> shift) + pixelStride * (crop.left >> shift));
+            for (int row = 0; row < h; row++) {
+                int length;
+                if (pixelStride == 1 && outputStride == 1) {
+                    length = w;
+                    buffer.get(mYuvBuffer, channelOffset, length);
+                    channelOffset += length;
+                } else {
+                    length = (w - 1) * pixelStride + 1;
+                    buffer.get(rowData, 0, length);
+                    for (int col = 0; col < w; col++) {
+                        mYuvBuffer[channelOffset] = rowData[col * pixelStride];
+                        channelOffset += outputStride;
+                    }
+                }
+                if (row < h - 1) {
+                    buffer.position(buffer.position() + rowStride - length);
+                }
+            }
+        }
+    }
+
 
     private Point previewViewSize;
 
@@ -646,24 +767,30 @@ public class TakeCaptureActivity extends Activity {
     }
 
 
+    private int mTrackIndex = -1;
+    private boolean mMuxerStarted = false;
+
     void initVideoCodec() {
 
         Log.i(TAG, "initVideoCodec: getWidth" + mPreviewSize.getWidth());
         Log.i(TAG, "initVideoCodec: getHeight" + mPreviewSize.getHeight());
 
         //设置录制视频的宽高
-        MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", mPreviewSize.getWidth(), mPreviewSize.getHeight());
+        //这里面的长宽设置应该跟imagereader里面获得的image的长宽进行对齐
+        MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", mPreviewSize.getHeight(), mPreviewSize.getWidth());
         //颜色空间设置为yuv420sp
         //mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, COLOR_FormatYUV420Flexible);
         //比特率，也就是码率 ，值越高视频画面更清晰画质更高
         mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, 1000_000);
-        //帧率，一般设置为30帧就够了
+        //帧率，一般设置为15帧就够了
         mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 25);
         //关键帧间隔
         mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
 
         mediaFormat.setLong(MediaFormat.KEY_MAX_INPUT_SIZE, Long.MAX_VALUE);
+
+        mediaFormat.setInteger(MediaFormat.KEY_MAX_FPS_TO_ENCODER, 15);
 
         try {
             //初始化mediacodec
@@ -675,7 +802,19 @@ public class TakeCaptureActivity extends Activity {
         //设置为编码模式和编码格式
         mediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         mediaCodec.start();
-        createFile(getExternalCacheDir().getAbsolutePath() + File.separator + "test.h264");
+        //createFile(getExternalCacheDir().getAbsolutePath() + File.separator + "test.h264");
+        initMuxer();
+    }
+
+    private void initMuxer() {
+        String outputPath = new File(getExternalCacheDir(),
+                CommonUtils.formatTime(System.currentTimeMillis()) + ".mp4").toString();
+        Log.d(TAG, "output file is " + outputPath);
+        try {
+            mMuxer = new MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        } catch (IOException ioe) {
+            throw new RuntimeException("MediaMuxer creation failed", ioe);
+        }
     }
 
 
@@ -683,19 +822,20 @@ public class TakeCaptureActivity extends Activity {
     long generateIndex = 0;
     private byte[] configbyte;
     private static final int TIMEOUT_USEC = 12000;
-    private static final int yuvqueuesize = 10;
+    private static final int yuvQueueSize = 10;
 
-    ArrayBlockingQueue<byte[]> YUVQueue = new ArrayBlockingQueue<>(yuvqueuesize);
+    ArrayBlockingQueue<byte[]> YUVQueue = new ArrayBlockingQueue<>(yuvQueueSize);
 
     public void putYUVData(byte[] buffer) {
         if (YUVQueue.size() >= 10) {
             YUVQueue.poll();
         }
         YUVQueue.add(buffer);
-        Log.i(TAG, "YUVQueue.size == : " + YUVQueue.size());
+        //Log.i(TAG, "YUVQueue.size == : " + YUVQueue.size());
     }
 
     private volatile boolean isRunning;
+    private long nanoTime;
 
     /**
      * 开始线程，开始编码
@@ -705,6 +845,7 @@ public class TakeCaptureActivity extends Activity {
             @Override
             public void run() {
                 isRunning = true;
+                nanoTime = System.nanoTime();
                 while (isRunning) {
                     if (YUVQueue.size() > 0) {
                         byte[] poll = YUVQueue.poll();
@@ -718,28 +859,59 @@ public class TakeCaptureActivity extends Activity {
         thread.start();
     }
 
+    private long startTime = 0;
 
     void encode(byte[] input) {
-        Log.i(TAG, "encode: " + input.length);
+        //Log.i(TAG, "encode: " + input.length);
         try {
-            long startMs = System.currentTimeMillis();
             //编码器输出缓冲区
             int inputBufferIndex = mediaCodec.dequeueInputBuffer(-1);
             if (inputBufferIndex >= 0) {
-                pts = computePresentationTime(generateIndex);
+                //pts = computePresentationTime(generateIndex);
                 ByteBuffer inputBuffer = mediaCodec.getInputBuffer(inputBufferIndex);
                 inputBuffer.clear();
                 //把转换后的YUV420格式的视频帧放到编码器输入缓冲区中
                 inputBuffer.put(input);
-                mediaCodec.queueInputBuffer(inputBufferIndex, 0, input.length, pts, 0);
-                generateIndex += 1;
+                mediaCodec.queueInputBuffer(inputBufferIndex, 0, input.length, (System.nanoTime() - nanoTime) / 1000, 0);
+                //generateIndex += 1;
             }
 
             MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
             int outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
+
+            if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                // should happen before receiving buffers, and should only happen once
+                addMuxerFormat();
+            }
+
+
             while (outputBufferIndex >= 0) {
                 ByteBuffer outputBuffer = mediaCodec.getOutputBuffer(outputBufferIndex);
-                byte[] outData = new byte[bufferInfo.size];
+
+                if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                    // The codec config data was pulled out and fed to the muxer when we got
+                    // the INFO_OUTPUT_FORMAT_CHANGED status.  Ignore it.
+                    Log.d(TAG, "ignoring BUFFER_FLAG_CODEC_CONFIG");
+                    bufferInfo.size = 0;
+                }
+
+                if (mMuxerStarted && mMuxer != null) {
+                    if (System.currentTimeMillis() - startTime > 10 * 60 * 1000) {
+                        splitVideo();
+                    } else {
+                        if (bufferInfo.size != 0) {
+                            // adjust the ByteBuffer values to match BufferInfo (not needed?)
+                            outputBuffer.position(bufferInfo.offset);
+                            outputBuffer.limit(bufferInfo.offset + bufferInfo.size);
+
+                            mMuxer.writeSampleData(mTrackIndex, outputBuffer, bufferInfo);
+                            //Log.d(TAG, "sent " + bufferInfo.size + " bytes to muxer");
+                        }
+                    }
+                }
+
+
+                /*byte[] outData = new byte[bufferInfo.size];
                 outputBuffer.get(outData);
 
                 if (bufferInfo.flags == BUFFER_FLAG_CODEC_CONFIG) {
@@ -756,18 +928,59 @@ public class TakeCaptureActivity extends Activity {
                 } else {
                     outputStream.write(outData, 0, outData.length);
                     Log.i(TAG, "encode: " + outData.length);
-                }
+                }*/
+
+
                 //send.sendH264Data(outData);
                 //Thread.sleep(40);
                 mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                 outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
-                Log.i(TAG, "outputBufferIndex: =" + outputBufferIndex);
+                //Log.i(TAG, "outputBufferIndex: =" + outputBufferIndex);
             }
 
         } catch (Throwable t) {
             t.printStackTrace();
         }
     }
+
+    private void addMuxerFormat() {
+        if (mMuxerStarted) {
+            throw new RuntimeException("format changed twice");
+        }
+        MediaFormat newFormat = mediaCodec.getOutputFormat();
+
+        // now that we have the Magic Goodies, start the muxer
+        mTrackIndex = mMuxer.addTrack(newFormat);
+        mMuxer.start();
+        mMuxerStarted = true;
+        Log.d(TAG, "encoder output format changed: " + newFormat + "===:" + mTrackIndex);
+
+        startTime = System.currentTimeMillis();
+    }
+
+    public void splitVideo() {
+        stopMuxer();
+        restartMuxer();
+    }
+
+    //关闭mMuxer，将一段视频保存到文件夹中。
+    private void stopMuxer() {
+        if (mMuxer != null) {
+            mMuxerStarted = false;
+
+            mMuxer.stop();
+            mMuxer.release();
+            mMuxer = null;
+            mTrackIndex = -1;
+        }
+    }
+
+    //重新开始录制新的视频
+    private void restartMuxer() {
+        initMuxer();
+        addMuxerFormat();
+    }
+
 
     /**
      * 计算pts
@@ -795,9 +1008,12 @@ public class TakeCaptureActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        stopMuxer();
+
         super.onDestroy();
         mCameraDevice.close();
         stopBackgroundThread();
         isRunning = false;
+
     }
 }

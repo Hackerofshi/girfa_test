@@ -21,19 +21,27 @@
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/AppTheme">
-        <activity android:name=".TakeCaptureActivity">
-<!--            <intent-filter>-->
-<!--                <action android:name="android.intent.action.MAIN" />-->
+        <activity android:name=".TakeCaptureActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
 
-<!--                <category android:name="android.intent.category.LAUNCHER" />-->
-<!--            </intent-filter>-->
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
         </activity>
         <activity android:name=".RecordH264Activity">
 
         </activity> <!-- android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar" > -->
         <activity
             android:name=".MainActivity"
-            android:label="@string/app_name"></activity>
+            android:exported="true"
+            android:label="@string/app_name">
+            <!--<intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>-->
+        </activity>
         <activity
             android:name=".ReadPixelsActivity"
             android:label="@string/title_activity_read_pixels" />
@@ -112,11 +120,11 @@
             android:name=".ScreenRecordActivity"
             android:label="Screen Recording" />
         <activity android:name=".TakeAudioActivity" >
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+<!--            <intent-filter>-->
+<!--                <action android:name="android.intent.action.MAIN" />-->
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+<!--                <category android:name="android.intent.category.LAUNCHER" />-->
+<!--            </intent-filter>-->
         </activity>
     </application>
 
