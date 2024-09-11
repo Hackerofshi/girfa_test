@@ -76,9 +76,7 @@ public class TakeCaptureActivity extends Activity {
         }
 
         @Override
-        public void onSurfaceTextureUpdated(@NonNull SurfaceTexture surface) {
-
-        }
+        public void onSurfaceTextureUpdated(@NonNull SurfaceTexture surface) {}
     };
 
     @Override

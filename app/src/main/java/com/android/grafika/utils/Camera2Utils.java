@@ -374,15 +374,15 @@ public class Camera2Utils {
     private void captureContinuousPictures() {
         try {
             //首先我们创建请求拍照的CaptureRequest
-            //            final CaptureRequest.Builder mCaptureBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            //            //获取屏幕方向
-            //            int rotation = getWindowManager().getDefaultDisplay().getRotation();
+            //final CaptureRequest.Builder mCaptureBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            ////获取屏幕方向
+            //int rotation = getWindowManager().getDefaultDisplay().getRotation();
             //
-            //            mCaptureBuilder.addTarget(mPreviewSurface);
-            //            mCaptureBuilder.addTarget(mImageReader.getSurface());
+            //mCaptureBuilder.addTarget(mPreviewSurface);
+            //mCaptureBuilder.addTarget(mImageReader.getSurface());
             //
-            //            //设置拍照方向
-            //            mCaptureBuilder.set(CaptureRequest.JPEG_ORIENTATION, ORIENTATION.get(rotation));
+            ////设置拍照方向
+            //mCaptureBuilder.set(CaptureRequest.JPEG_ORIENTATION, ORIENTATION.get(rotation));
 
             // 锁定AE调节，否则录像或视频画面在特定光线条件下会不停闪烁
             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);

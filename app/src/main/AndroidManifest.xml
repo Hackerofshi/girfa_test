@@ -23,11 +23,7 @@
         android:theme="@style/AppTheme">
         <activity android:name=".TakeCaptureActivity"
             android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
         </activity>
         <activity android:name=".RecordH264Activity">
 
@@ -77,7 +73,15 @@
             android:label="@string/title_activity_chor_test" />
         <activity
             android:name=".DoubleDecodeActivity"
-            android:label="@string/title_activity_double_decode" />
+            android:label="@string/title_activity_double_decode"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ContinuousCaptureActivity"
             android:label="@string/title_activity_continuous_capture" />

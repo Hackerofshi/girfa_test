@@ -16,9 +16,10 @@
 
 package com.android.grafika;
 
-import android.os.Bundle;
 import android.app.Activity;
 import android.graphics.SurfaceTexture;
+import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.Surface;
 import android.view.TextureView;
@@ -159,7 +160,7 @@ public class DoubleDecodeActivity extends Activity {
             if (mSavedSurfaceTexture == null) {
                 mSavedSurfaceTexture = st;
 
-                File sliders = ContentManager.getInstance().getPath(mMovieTag);
+                File sliders = new File(Environment.getExternalStorageDirectory() + "/1/" + "20240819_14.41.40.mp4");
                 mPlayThread = new PlayMovieThread(sliders, new Surface(st), mCallback);
             } else {
                 // Can't do it here in Android <= 4.4.  The TextureView doesn't add a
