@@ -57,8 +57,14 @@ public class VideoDecoder {
             extractor = new MediaExtractor();
             String path = externalCacheDir.getAbsolutePath() + "/test.mp4";
             Log.e(TAG, "video path " + path);
+            // 获取 AssetManager
+            AssetManager assetManager = context.getAssets();
 
-            extractor.setDataSource(path);
+            // 获取指定视频文件的 AssetFileDescriptor
+            AssetFileDescriptor afd = assetManager.openFd("test.mp4"); // 替换为你的视频文件名
+            extractor.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+
+            //extractor.setDataSource(path);
             int trackIndex = selectVideoTrack(extractor);
             if (trackIndex < 0) {
                 Log.e(TAG, "No video track found in ");

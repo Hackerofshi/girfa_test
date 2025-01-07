@@ -44,6 +44,12 @@ public class TestActivity extends Activity {
                     @Override
                     public void callBitmap(Bitmap bitmap) {
                         thisBitMap = bitmap;
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                viewById.setImageBitmap(thisBitMap);
+                            }
+                        });
                     }
                 });
             }
