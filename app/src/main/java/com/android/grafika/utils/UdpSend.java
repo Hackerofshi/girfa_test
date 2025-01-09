@@ -23,7 +23,7 @@ public class UdpSend {
     public UdpSend() {
         try {
             socket = new DatagramSocket();
-            address = InetAddress.getByName("192.168.5.78");
+            address = InetAddress.getByName("192.168.10.2");
 
 
             if (sendThread == null) sendThread = new HandlerThread("udp数据发送线程");
