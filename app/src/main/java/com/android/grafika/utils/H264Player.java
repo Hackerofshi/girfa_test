@@ -104,18 +104,18 @@ public class H264Player implements Runnable {
                 break;
             }
             nextFrameStart = findFrame(bytes, startIndex + 1, totalCount);
-            Log.e("nextFrameStart", nextFrameStart + "");
+            Log.e("nextFrameStart", String.valueOf(nextFrameStart));
             if (nextFrameStart == -1) break;
             // 往 ByteBuffer 中塞入数据
             int index = mediaCodec.dequeueInputBuffer(10 * 1000);
-            Log.e("index", index + "");
+            Log.e("index", String.valueOf(index));
             // 获取 dsp 成功
             if (index >= 0) {
                 // 拿到可用的 ByteBuffer
                 ByteBuffer byteBuffer = byteBuffers[index];
                 byteBuffer.clear();
                 int length = nextFrameStart - startIndex;
-                Log.e("一帧的长度", length + "");
+                Log.e("一帧的长度", String.valueOf(length));
                 byteBuffer.put(bytes, startIndex, length);
                 // 识别分隔符，找到分隔符对应的索引
                 mediaCodec.queueInputBuffer(index, 0, length, time, 0);

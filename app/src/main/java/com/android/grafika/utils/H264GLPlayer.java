@@ -122,11 +122,11 @@ public class H264GLPlayer {
                     //Log.e("一帧的开始", startIndex + "");
                     int length = nextFrameStart - startIndex;
                     byte[] batch = getOneFrame(length);
-                    Log.d("一帧的长度", batch.length + "");
+                    Log.d("一帧的长度", String.valueOf(batch.length));
                     //startIndex = 0;
                     //往 ByteBuffer 中塞入数据
                     int index = mediaCodec.dequeueInputBuffer(10 * 1000);
-                    Log.e("index", index + "");
+                    Log.e("index", String.valueOf(index));
                     // 获取 dsp 成功
                     if (index >= 0) {
                         // 拿到可用的 ByteBuffer
